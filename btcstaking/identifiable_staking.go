@@ -5,6 +5,7 @@ import (
 	"encoding/binary"
 	"encoding/hex"
 	"fmt"
+	"log"
 
 	"github.com/btcsuite/btcd/btcec/v2"
 	"github.com/btcsuite/btcd/btcec/v2/schnorr"
@@ -209,12 +210,14 @@ func BuildV0IdentifiableStakingOutputs(
 	if err != nil {
 		return nil, err
 	}
+	log.Printf("[BuildV0IdentifiableStakingOutputs]opReturnData: %#v", opReturnData)
 
 	dataOutput, err := opReturnData.ToTxOutput()
 
 	if err != nil {
 		return nil, err
 	}
+	log.Printf("[BuildV0IdentifiableStakingOutputs]opReturnData, TXOutput: %#v", dataOutput)
 
 	return &IdentifiableStakingInfo{
 		StakingOutput:         info.StakingOutput,

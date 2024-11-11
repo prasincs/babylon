@@ -3,6 +3,7 @@ package btcstaking
 import (
 	"encoding/hex"
 	"fmt"
+	"log"
 
 	sdkmath "cosmossdk.io/math"
 	"github.com/btcsuite/btcd/btcec/v2"
@@ -32,14 +33,12 @@ var (
 
 func unspendableKeyPathInternalPubKeyInternal(keyHex string) btcec.PublicKey {
 	keyBytes, err := hex.DecodeString(keyHex)
-
 	if err != nil {
 		panic(fmt.Sprintf("unexpected error: %v", err))
 	}
 
 	// We are using btcec here, as key is 33 byte compressed format.
 	pubKey, err := btcec.ParsePubKey(keyBytes)
-
 	if err != nil {
 		panic(fmt.Sprintf("unexpected error: %v", err))
 	}
@@ -64,8 +63,8 @@ func NewTaprootTreeFromScripts(
 func DeriveTaprootAddress(
 	tapScriptTree *txscript.IndexedTapScriptTree,
 	internalPubKey *btcec.PublicKey,
-	net *chaincfg.Params) (*btcutil.AddressTaproot, error) {
-
+	net *chaincfg.Params,
+) (*btcutil.AddressTaproot, error) {
 	tapScriptRootHash := tapScriptTree.RootNode.TapHash()
 
 	outputKey := txscript.ComputeTaprootOutputKey(
@@ -74,7 +73,6 @@ func DeriveTaprootAddress(
 
 	address, err := btcutil.NewAddressTaproot(
 		schnorr.SerializePubKey(outputKey), net)
-
 	if err != nil {
 		return nil, fmt.Errorf("error encoding Taproot address: %v", err)
 	}
@@ -92,13 +90,11 @@ func DeriveTaprootPkScript(
 		&unspendableKeyPathKey,
 		net,
 	)
-
 	if err != nil {
 		return nil, err
 	}
 
 	taprootPkScript, err := txscript.PayToAddrScript(taprootAddress)
-
 	if err != nil {
 		return nil, err
 	}
@@ -120,6 +116,7 @@ func newTaprootScriptHolder(
 	}
 
 	if len(scripts) == 0 {
+		log.Printf("no scripts, returning %#v", txscript.NewIndexedTapScriptTree(0))
 		return &taprootScriptHolder{
 			scriptTree: txscript.NewIndexedTapScriptTree(0),
 		}, nil
@@ -145,7 +142,16 @@ func newTaprootScriptHolder(
 		tapLeafs[i] = tapLeaf
 	}
 
+	for i, tapLeaf := range tapLeafs {
+		log.Printf("[newTaprootScriptHolder] tapLeafs[%d]%#v", i, tapLeaf)
+	}
+	for hash, value := range createdLeafs {
+		log.Printf("[newTaprootScriptHolder] createdLeafs[%s]%v", hash, value)
+	}
+
 	scriptTree := txscript.AssembleTaprootScriptTree(tapLeafs...)
+
+	log.Printf("[newTaprootScriptHolder] scriptTree: {RootNode: %#v, LeafMerkleProofs %#v}", scriptTree.RootNode, scriptTree.LeafMerkleProofs)
 
 	return &taprootScriptHolder{
 		internalPubKey: internalPubKey,
@@ -221,8 +227,8 @@ func (si *SpendInfo) GetPkScriptPath() []byte {
 func SpendInfoFromRevealedScript(
 	revealedScript []byte,
 	internalKey *btcec.PublicKey,
-	tree *txscript.IndexedTapScriptTree) (*SpendInfo, error) {
-
+	tree *txscript.IndexedTapScriptTree,
+) (*SpendInfo, error) {
 	revealedLeaf := txscript.NewBaseTapLeaf(revealedScript)
 	leafHash := revealedLeaf.TapHash()
 
@@ -322,10 +328,10 @@ func newBabylonScriptPaths(
 	}
 
 	timeLockPathScript, err := buildTimeLockScript(stakerKey, lockTime)
-
 	if err != nil {
 		return nil, err
 	}
+	log.Printf("[newBabylonScriptPaths] timelockPathScript: %#v", timeLockPathScript)
 
 	covenantMultisigScript, err := buildMultiSigScript(
 		covenantKeys,
@@ -335,16 +341,16 @@ func newBabylonScriptPaths(
 		// script will always error
 		false,
 	)
-
 	if err != nil {
 		return nil, err
 	}
+	log.Printf("[newBabylonScriptPaths] covenantMultisigScript: %#v", covenantMultisigScript)
 
 	stakerSigScript, err := buildSingleKeySigScript(stakerKey, true)
-
 	if err != nil {
 		return nil, err
 	}
+	log.Printf("[newBabylonScriptPaths] stakerSigScript: %#v", stakerSigScript)
 
 	fpMultisigScript, err := buildMultiSigScript(
 		fpKeys,
@@ -353,21 +359,23 @@ func newBabylonScriptPaths(
 		// we need to run verify to clear the stack, as finality provider multisig is in the middle of the script
 		true,
 	)
-
 	if err != nil {
 		return nil, err
 	}
+	log.Printf("[newBabylonScriptPaths] fpMultisigScript: %#v", fpMultisigScript)
 
 	unbondingPathScript := aggregateScripts(
 		stakerSigScript,
 		covenantMultisigScript,
 	)
+	log.Printf("[newBabylonScriptPaths] unbondingPathScript: %#v", unbondingPathScript)
 
 	slashingPathScript := aggregateScripts(
 		stakerSigScript,
 		fpMultisigScript,
 		covenantMultisigScript,
 	)
+	log.Printf("[newBabylonScriptPaths] slashingPathScript: %#v", slashingPathScript)
 
 	return &babylonScriptPaths{
 		timeLockPathScript:  timeLockPathScript,
@@ -392,7 +400,7 @@ func BuildStakingInfo(
 	net *chaincfg.Params,
 ) (*StakingInfo, error) {
 	unspendableKeyPathKey := unspendableKeyPathInternalPubKey()
-
+	log.Printf("[BuildStakingInfo] UnspendableKeypathKey %x", unspendableKeyPathKey.SerializeCompressed())
 	babylonScripts, err := newBabylonScriptPaths(
 		stakerKey,
 		fpKeys,
@@ -400,36 +408,44 @@ func BuildStakingInfo(
 		covenantQuorum,
 		stakingTime,
 	)
-
 	if err != nil {
 		return nil, fmt.Errorf("%s: %w", errBuildingStakingInfo, err)
 	}
+	log.Printf("[BuildStakingInfo] babylonScripts %v", babylonScripts)
 
 	var unbondingPaths [][]byte
 	unbondingPaths = append(unbondingPaths, babylonScripts.timeLockPathScript)
+	log.Printf("[BuildStakingInfo]post-timelockPathScript append: %x", unbondingPaths)
 	unbondingPaths = append(unbondingPaths, babylonScripts.unbondingPathScript)
+	log.Printf("[BuildStakingInfo]post-timelockScript-unbondingPathScript append: %x", unbondingPaths)
 	unbondingPaths = append(unbondingPaths, babylonScripts.slashingPathScript)
+	log.Printf("[BuildStakingInfo]post-timelockScript-unbondingPathScript-slashingPathScript append: %x", unbondingPaths)
 
 	timeLockLeafHash := txscript.NewBaseTapLeaf(babylonScripts.timeLockPathScript).TapHash()
+	log.Printf("[BuildStakingInfo] timeLockLeafHash: %x", timeLockLeafHash)
 	unbondingPathLeafHash := txscript.NewBaseTapLeaf(babylonScripts.unbondingPathScript).TapHash()
+	log.Printf("[BuildStakingInfo] unbondingPathLeafHash: %x", unbondingPathLeafHash)
 	slashingLeafHash := txscript.NewBaseTapLeaf(babylonScripts.slashingPathScript).TapHash()
+	log.Printf("[BuildStakingInfo] slashingLeafHash: %x", slashingLeafHash)
 
 	sh, err := newTaprootScriptHolder(
 		&unspendableKeyPathKey,
 		unbondingPaths,
 	)
-
 	if err != nil {
 		return nil, fmt.Errorf("%s: %w", errBuildingStakingInfo, err)
 	}
+
+	log.Printf("[BuildStakingInfo]TaprootScriptHolder: %#v", sh)
 
 	taprootPkScript, err := sh.taprootPkScript(net)
-
 	if err != nil {
 		return nil, fmt.Errorf("%s: %w", errBuildingStakingInfo, err)
 	}
+	log.Printf("[BuildStakingInfo]taprootPkScript: %x", taprootPkScript)
 
 	stakingOutput := wire.NewTxOut(int64(stakingAmount), taprootPkScript)
+	log.Printf("[BuildStakingInfo]stakingOutput: %v", stakingOutput)
 
 	return &StakingInfo{
 		StakingOutput:         stakingOutput,
@@ -486,7 +502,6 @@ func BuildUnbondingInfo(
 		covenantQuorum,
 		unbondingTime,
 	)
-
 	if err != nil {
 		return nil, fmt.Errorf("%s: %w", errBuildingUnbondingInfo, err)
 	}
@@ -502,13 +517,11 @@ func BuildUnbondingInfo(
 		&unspendableKeyPathKey,
 		unbondingPaths,
 	)
-
 	if err != nil {
 		return nil, fmt.Errorf("%s: %w", errBuildingUnbondingInfo, err)
 	}
 
 	taprootPkScript, err := sh.taprootPkScript(net)
-
 	if err != nil {
 		return nil, fmt.Errorf("%s: %w", errBuildingUnbondingInfo, err)
 	}
@@ -568,7 +581,6 @@ func BuildRelativeTimelockTaprootScript(
 	unspendableKeyPathKey := unspendableKeyPathInternalPubKey()
 
 	script, err := buildTimeLockScript(pk, lockTime)
-
 	if err != nil {
 		return nil, err
 	}
@@ -577,7 +589,6 @@ func BuildRelativeTimelockTaprootScript(
 		&unspendableKeyPathKey,
 		[][]byte{script},
 	)
-
 	if err != nil {
 		return nil, err
 	}
@@ -595,13 +606,11 @@ func BuildRelativeTimelockTaprootScript(
 		&unspendableKeyPathKey,
 		net,
 	)
-
 	if err != nil {
 		return nil, err
 	}
 
 	taprootPkScript, err := txscript.PayToAddrScript(taprootAddress)
-
 	if err != nil {
 		return nil, err
 	}

@@ -45,7 +45,6 @@ func serializeBTCTx(tx *wire.MsgTx) ([]byte, error) {
 
 func serializeBTCTxToHex(tx *wire.MsgTx) (string, error) {
 	bytes, err := serializeBTCTx(tx)
-
 	if err != nil {
 		return "", err
 	}
@@ -173,7 +172,6 @@ func TestVectorsCompatiblity(t *testing.T) {
 	for _, tc := range cases.Test {
 		t.Logf("Running test case: %s", tc.Description)
 		parsedParams, err := parseTestParams(t, tc.Parameters)
-
 		if err != nil {
 			require.NoError(t, fmt.Errorf("error parsing test parameters for case %s: %w", tc.Description, err))
 		}
@@ -187,25 +185,21 @@ func TestVectorsCompatiblity(t *testing.T) {
 			parsedParams.StakingValue,
 			parsedParams.Network,
 		)
-
 		if err != nil {
 			require.NoError(t, fmt.Errorf("error building staking info for case %s: %w", tc.Description, err))
 		}
 
 		sti, err := info.TimeLockPathSpendInfo()
-
 		if err != nil {
 			require.NoError(t, fmt.Errorf("error building staking timelock path spend info for case %s: %w", tc.Description, err))
 		}
 
 		sui, err := info.UnbondingPathSpendInfo()
-
 		if err != nil {
 			require.NoError(t, fmt.Errorf("error building staking unbonding path spend info for case %s: %w", tc.Description, err))
 		}
 
 		ssi, err := info.SlashingPathSpendInfo()
-
 		if err != nil {
 			require.NoError(t, fmt.Errorf("error building staking slashing path spend info for case %s: %w", tc.Description, err))
 		}
@@ -219,7 +213,6 @@ func TestVectorsCompatiblity(t *testing.T) {
 			parsedParams.StakingValue-parsedParams.UnbondingFee,
 			parsedParams.Network,
 		)
-
 		if err != nil {
 			require.NoError(t, fmt.Errorf("error building unbonding info for case %s: %w", tc.Description, err))
 		}
@@ -229,7 +222,6 @@ func TestVectorsCompatiblity(t *testing.T) {
 			require.NoError(t, fmt.Errorf("error building unbonding timelock path spend info for case %s: %w", tc.Description, err))
 		}
 		usi, err := ubInfo.SlashingPathSpendInfo()
-
 		if err != nil {
 			require.NoError(t, fmt.Errorf("error building unbonding slashing path spend info for case %s: %w", tc.Description, err))
 		}
@@ -266,13 +258,11 @@ func TestVectorsCompatiblity(t *testing.T) {
 				parsedParams.FinalityProviderPublicKeys[0],
 				parsedParams.StakingTime,
 			)
-
 			if err != nil {
 				require.NoError(t, fmt.Errorf("error building op_return data for case %s: %w", tc.Description, err))
 			}
 
 			opReturnOutput, err := data.ToTxOutput()
-
 			if err != nil {
 				require.NoError(t, fmt.Errorf("error building op_return output for case %s: %w", tc.Description, err))
 			}
