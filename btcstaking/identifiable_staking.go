@@ -69,19 +69,16 @@ func NewV0OpReturnData(
 	}
 
 	stakerKey, err := XOnlyPublicKeyFromBytes(stakerPublicKey)
-
 	if err != nil {
 		return nil, fmt.Errorf("%s:invalid staker public key:%w", v0OpReturnCreationErrMsg, err)
 	}
 
 	fpKey, err := XOnlyPublicKeyFromBytes(finalityProviderPublicKey)
-
 	if err != nil {
 		return nil, fmt.Errorf("%s:invalid finality provider public key:%w", v0OpReturnCreationErrMsg, err)
 	}
 
 	stakingTimeValue, err := uint16FromBytes(stakingTime)
-
 	if err != nil {
 		return nil, fmt.Errorf("%s:invalid staking time:%w", v0OpReturnCreationErrMsg, err)
 	}
@@ -155,7 +152,6 @@ func getV0OpReturnBytes(out *wire.TxOut) ([]byte, error) {
 
 func NewV0OpReturnDataFromTxOutput(out *wire.TxOut) (*V0OpReturnData, error) {
 	data, err := getV0OpReturnBytes(out)
-
 	if err != nil {
 		return nil, fmt.Errorf("cannot parse op return data: %w", err)
 	}
@@ -206,14 +202,12 @@ func BuildV0IdentifiableStakingOutputs(
 	}
 
 	opReturnData, err := NewV0OpReturnDataFromParsed(tag, stakerKey, fpKey, stakingTime)
-
 	if err != nil {
 		return nil, err
 	}
 	log.Printf("[BuildV0IdentifiableStakingOutputs]opReturnData: %#v", opReturnData)
 
 	dataOutput, err := opReturnData.ToTxOutput()
-
 	if err != nil {
 		return nil, err
 	}
@@ -293,7 +287,6 @@ func tryToGetOpReturnDataFromOutputs(outputs []*wire.TxOut) (*V0OpReturnData, in
 	for i, o := range outputs {
 		output := o
 		d, err := NewV0OpReturnDataFromTxOutput(output)
-
 		if err != nil {
 			// this is not an op return output recognized by Babylon, move forward
 			continue
@@ -375,7 +368,6 @@ func ParseV0StakingTx(
 	}
 
 	opReturnData, opReturnOutputIdx, err := tryToGetOpReturnDataFromOutputs(tx.TxOut)
-
 	if err != nil {
 		return nil, fmt.Errorf("cannot parse staking transaction: %w", err)
 	}
@@ -409,13 +401,11 @@ func ParseV0StakingTx(
 		0,
 		net,
 	)
-
 	if err != nil {
 		return nil, fmt.Errorf("cannot build staking info: %w", err)
 	}
 
 	stakingOutput, stakingOutputIdx, err := tryToGetStakingOutput(tx.TxOut, stakingInfo.StakingOutput.PkScript)
-
 	if err != nil {
 		return nil, fmt.Errorf("cannot parse staking transaction: %w", err)
 	}
@@ -441,41 +431,50 @@ func ParseV0StakingTx(
 // This function is much faster than ParseV0StakingTx, as it does not perform
 // all necessary checks.
 func IsPossibleV0StakingTx(tx *wire.MsgTx, expectedTag []byte) bool {
+	log.Printf("expectedTag: %s", hex.EncodeToString(expectedTag))
 	if len(expectedTag) != TagLen {
+		log.Printf("invalid tag length: %d, expected: %d", len(expectedTag), TagLen)
 		return false
 	}
 
 	if len(tx.TxOut) < 2 {
+		log.Printf("staking tx must have at least 2 outputs")
 		return false
 	}
 
-	var possibleStakingTx = false
+	possibleStakingTx := false
 	for _, o := range tx.TxOut {
 		output := o
 
 		data, err := getV0OpReturnBytes(output)
-
 		if err != nil {
 			// this is not an op return output recognized by Babylon, move forward
 			continue
 		}
+		log.Printf("data: %s", hex.EncodeToString(data))
 
 		if !bytes.Equal(data[:TagLen], expectedTag) {
+			log.Printf("unexpected tag: %s, expected: %s", hex.EncodeToString(data[:TagLen]), hex.EncodeToString(expectedTag))
 			// this is not the op return output we are looking for as tag do not match
 			continue
 		}
 
+		log.Printf("data[TagLen]: %s", hex.EncodeToString(data[:TagLen]))
+
 		if data[TagLen] != 0 {
 			// this is not the v0 op return output
+			log.Printf("unexpected version: %d, expected: %d", data[TagLen], 0)
 			continue
 		}
 
 		if possibleStakingTx {
 			// this is second output that matches the tag, we do not allow for multiple op return outputs
 			// so this is not a valid staking transaction
+			log.Printf("multiple op return outputs found")
 			return false
 		}
 
+		log.Printf("possibleStakingTx: %v", possibleStakingTx)
 		possibleStakingTx = true
 	}
 
