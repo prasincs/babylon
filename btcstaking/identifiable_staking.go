@@ -14,6 +14,7 @@ import (
 	"github.com/btcsuite/btcd/chaincfg/chainhash"
 	"github.com/btcsuite/btcd/txscript"
 	"github.com/btcsuite/btcd/wire"
+	"github.com/davecgh/go-spew/spew"
 )
 
 const (
@@ -307,6 +308,8 @@ func tryToGetOpReturnDataFromOutputs(outputs []*wire.TxOut) (*V0OpReturnData, in
 }
 
 func tryToGetStakingOutput(outputs []*wire.TxOut, stakingOutputPkScript []byte) (*wire.TxOut, int, error) {
+	log.Printf("[tryToGetStakingOutput]outputs: %#v", outputs)
+	log.Printf("[tryToGetStakingOutput]computed stakingOutputPkScript: %s", hex.EncodeToString(stakingOutputPkScript))
 	// lack of outputs is not an error
 	if len(outputs) == 0 {
 		return nil, -1, nil
@@ -318,6 +321,7 @@ func tryToGetStakingOutput(outputs []*wire.TxOut, stakingOutputPkScript []byte) 
 	for i, o := range outputs {
 		output := o
 
+		log.Printf("[tryToGetStakingOutput]output[%d].PkScript: %s", i, hex.EncodeToString(output.PkScript))
 		if !bytes.Equal(output.PkScript, stakingOutputPkScript) {
 			// this is not the staking output we are looking for
 			continue
@@ -386,7 +390,7 @@ func ParseV0StakingTx(
 	}
 
 	if opReturnData.Version != 0 {
-		return nil, fmt.Errorf("unexpcted version: %d, expected: %d", opReturnData.Version, 0)
+		return nil, fmt.Errorf("unexpected version: %d, expected: %d", opReturnData.Version, 0)
 	}
 
 	// 3. Op return seems to be valid V0 op return output. Now, we need to check whether
@@ -404,6 +408,7 @@ func ParseV0StakingTx(
 	if err != nil {
 		return nil, fmt.Errorf("cannot build staking info: %w", err)
 	}
+	log.Printf("[ParseV0StakingTx]stakingInfo: %s", spew.Sdump(stakingInfo))
 
 	stakingOutput, stakingOutputIdx, err := tryToGetStakingOutput(tx.TxOut, stakingInfo.StakingOutput.PkScript)
 	if err != nil {
@@ -474,7 +479,6 @@ func IsPossibleV0StakingTx(tx *wire.MsgTx, expectedTag []byte) bool {
 			return false
 		}
 
-		log.Printf("possibleStakingTx: %v", possibleStakingTx)
 		possibleStakingTx = true
 	}
 

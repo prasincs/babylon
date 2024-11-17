@@ -13,6 +13,7 @@ import (
 	"github.com/btcsuite/btcd/chaincfg/chainhash"
 	"github.com/btcsuite/btcd/txscript"
 	"github.com/btcsuite/btcd/wire"
+	"github.com/davecgh/go-spew/spew"
 
 	bbn "github.com/babylonlabs-io/babylon/types"
 	sdk "github.com/cosmos/cosmos-sdk/types"
@@ -143,15 +144,15 @@ func newTaprootScriptHolder(
 	}
 
 	for i, tapLeaf := range tapLeafs {
-		log.Printf("[newTaprootScriptHolder] tapLeafs[%d]%#v", i, tapLeaf)
+		log.Printf("[newTaprootScriptHolder] tapLeafs[%d]%s", i, spew.Sdump(tapLeaf))
 	}
 	for hash, value := range createdLeafs {
-		log.Printf("[newTaprootScriptHolder] createdLeafs[%s]%v", hash, value)
+		log.Printf("[newTaprootScriptHolder] createdLeafs[%s]%s", hash, spew.Sdump(value))
 	}
 
 	scriptTree := txscript.AssembleTaprootScriptTree(tapLeafs...)
 
-	log.Printf("[newTaprootScriptHolder] scriptTree: {RootNode: %#v, LeafMerkleProofs %#v}", scriptTree.RootNode, scriptTree.LeafMerkleProofs)
+	log.Printf("[newTaprootScriptHolder] scriptTree: {RootNode: %s, LeafMerkleProofs %s}", spew.Sdump(scriptTree.RootNode), spew.Sdump(scriptTree.LeafMerkleProofs))
 
 	return &taprootScriptHolder{
 		internalPubKey: internalPubKey,
@@ -344,7 +345,7 @@ func newBabylonScriptPaths(
 	if err != nil {
 		return nil, err
 	}
-	log.Printf("[newBabylonScriptPaths] covenantMultisigScript: %#v", covenantMultisigScript)
+	log.Printf("[newBabylonScriptPaths] covenantMultisigScript: %s", hex.EncodeToString(covenantMultisigScript))
 
 	stakerSigScript, err := buildSingleKeySigScript(stakerKey, true)
 	if err != nil {
@@ -368,14 +369,14 @@ func newBabylonScriptPaths(
 		stakerSigScript,
 		covenantMultisigScript,
 	)
-	log.Printf("[newBabylonScriptPaths] unbondingPathScript: %#v", unbondingPathScript)
+	log.Printf("[newBabylonScriptPaths] unbondingPathScript: %s", spew.Sdump(unbondingPathScript))
 
 	slashingPathScript := aggregateScripts(
 		stakerSigScript,
 		fpMultisigScript,
 		covenantMultisigScript,
 	)
-	log.Printf("[newBabylonScriptPaths] slashingPathScript: %#v", slashingPathScript)
+	log.Printf("[newBabylonScriptPaths] slashingPathScript: %s", spew.Sdump(slashingPathScript))
 
 	return &babylonScriptPaths{
 		timeLockPathScript:  timeLockPathScript,
@@ -445,7 +446,7 @@ func BuildStakingInfo(
 	log.Printf("[BuildStakingInfo]taprootPkScript: %x", taprootPkScript)
 
 	stakingOutput := wire.NewTxOut(int64(stakingAmount), taprootPkScript)
-	log.Printf("[BuildStakingInfo]stakingOutput: %v", stakingOutput)
+	log.Printf("[BuildStakingInfo]stakingOutput: %s", spew.Sdump(stakingOutput))
 
 	return &StakingInfo{
 		StakingOutput:         stakingOutput,
